@@ -52,6 +52,8 @@ Get the account_id and export it in env:
 
 ```
 export ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+
+echo $ACCOUNT_ID
 ```
 
 ```
