@@ -642,8 +642,129 @@ echo $RETAIL_ALB
 Paste the URL into a web browser to access the application.
 
 ### 6. Update the UI Task Definition
+In this section, We'll learn how to update an ECS service. In this lab you will start by updating the UI Task Definition of the UI service. This process is useful for scenarios such as changing the container image or modifying the configuration.
+
+Environment variables are one of the primary mechanisms used to configure container workloads, regardless of the orchestrator. We'll alter the configuration of the UI service by passing a new environment variable that will change the behavior of the workload. Since Docker images are immutable artifacts, environment variables are a convenient way to modify application behavior at runtime. In this case, We'll use the RETAIL_UI_THEME setting, which will change the default color theme for the application.
+
+Environment variables are expressed in ECS task definitions with a name and a value like so:
+```
+"environment": [
+    {
+        "name": "RETAIL_UI_THEME",
+        "value": "green"
+    }
+]
+```
+To update the UI task definition with the required environment variables you can run the lab-prep rolling script. The script will:
+
+Generate the retail-store-ecs-ui-rolling-taskdef.json file
+Print out the new task definition
+Disable the session stickiness from the application Target Group.
+```
+lab-prep rolling green | jq
+```
+We will get an output similar to the one below:
+```
+{
+    "family": "retail-store-ecs-ui",
+    "executionRoleArn": "arn:aws:iam::${ACCOUNT_ID}:role/retailStoreEcsTaskExecutionRole",
+    "taskRoleArn": "arn:aws:iam::${ACCOUNT_ID}:role/retailStoreEcsTaskRole",
+    "networkMode": "awsvpc",
+    "requiresCompatibilities": [
+        "FARGATE"
+    ],
+    "cpu": "1024",
+    "memory": "2048",
+    "runtimePlatform": {
+        "cpuArchitecture": "X86_64",
+        "operatingSystemFamily": "LINUX"
+    },
+    "containerDefinitions": [
+        {
+            "name": "application",
+            "image": "public.ecr.aws/aws-containers/retail-store-sample-ui:1.2.3",
+            "portMappings": [
+                {
+                    "name": "application",
+                    "containerPort": 8080,
+                    "hostPort": 8080,
+                    "protocol": "tcp",
+                    "appProtocol": "http"
+                }
+            ],
+            "essential": true,
+            "linuxParameters": {
+                "initProcessEnabled": true
+            },
+            "environment": [
+                {
+                    "name": "RETAIL_UI_THEME",
+                    "value": "green"
+                }
+            ],
+            "healthCheck": {
+                "command": [
+                    "CMD-SHELL",
+                    "curl -f http://localhost:8080/actuator/health || exit 1"
+                ],
+                "interval": 10,
+                "timeout": 5,
+                "retries": 3,
+                "startPeriod": 30
+            },
+            "versionConsistency": "disabled",
+            "logConfiguration": {
+                "logDriver": "awslogs",
+                "options": {
+                    "awslogs-group": "retail-store-ecs-tasks",
+                    "awslogs-region": "$AWS_REGION",
+                    "awslogs-stream-prefix": "ui-service"
+                }
+            }
+        }
+    ]
+}
+```
+Now, use the register-task-definition command to update the task definition:
+```
+aws ecs register-task-definition --cli-input-json file://retail-store-ecs-ui-rolling-taskdef.json
+```
+It's important to note that ECS task definitions are immutable, meaning they cannot be modified after creation. Instead, the above command will create a new task definition revision, which is a copy of the current task definition with the new parameter values replacing the existing ones.
+
+We can check that you now have multiple task definition revisions with the following command:
+```
+aws ecs list-task-definitions --family-prefix retail-store-ecs-ui --sort DESC --max-items 2
+```
 
 
-### 7.
+### 7. Update the UI Service
+```
+aws ecs update-service \
+    --cluster retail-store-ecs-cluster \
+    --service ui \
+    --task-definition retail-store-ecs-ui \
+    --force-new-deployment \
+    --deployment-configuration '{
+        "strategy": "ROLLING",
+        "maximumPercent": 200,
+        "minimumHealthyPercent": 100
+    }'
+```
+While the deployment is still in progress, observe the application behavior by running the following command.
+```
+export RETAIL_ALB=$(aws elbv2 describe-load-balancers --name retail-store-ecs-ui \
+ --query 'LoadBalancers[0].DNSName' --output text)
 
-### 8.
+for i in $(seq 1 120)
+do
+    sleep 1
+    curl --silent http://${RETAIL_ALB} | egrep "theme.+css"
+done
+```
+or, see the number of running and pending tasks change, along with the deployment information, until only the newest task definition revision remains active.
+```
+aws ecs describe-services \
+  --cluster retail-store-dev \
+  --services ui \
+  --query "services[0].[runningCount,pendingCount,deployments]"
+```
