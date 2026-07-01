@@ -36,6 +36,19 @@ resource "aws_ecs_task_definition" "ui" {
 
       essential = true
 
+
+      linuxParameters = {
+        initProcessEnabled = true
+      }
+
+      environment = [
+        {
+          name  = "RETAIL_UI_THEME"
+          value = var.ui_theme
+        }
+      ]
+
+
       portMappings = [
         {
           containerPort = var.container_port
@@ -60,7 +73,7 @@ resource "aws_ecs_task_definition" "ui" {
 
         options = {
           awslogs-group         = var.log_group_name
-          awslogs-region        = data.aws_region.current.name
+          awslogs-region        = var.aws_region
           awslogs-stream-prefix = "ui"
         }
       }
@@ -75,7 +88,6 @@ resource "aws_ecs_task_definition" "ui" {
   tags = local.common_tags
 }
 
-data "aws_region" "current" {}
 
 resource "aws_ecs_service" "ui" {
 
@@ -87,7 +99,24 @@ resource "aws_ecs_service" "ui" {
 
   desired_count = var.desired_count
 
+  deployment_minimum_healthy_percent = 100
+  deployment_maximum_percent         = 200
+
+  health_check_grace_period_seconds = 60
+
+  platform_version = "LATEST"
+
   enable_execute_command = true
+
+  deployment_circuit_breaker {
+
+    enable   = true
+    rollback = true
+
+  }
+
+  enable_ecs_managed_tags = true
+  propagate_tags          = "SERVICE"
 
   network_configuration {
 

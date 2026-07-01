@@ -59,3 +59,13 @@ variable "tags" {
   default = {}
 }
 
+variable "ui_theme" {
+  description = "Retail Store UI Theme"
+  type        = string
+  default     = "green"
+}
+
+variable "aws_region" {
+  type = string
+}
+

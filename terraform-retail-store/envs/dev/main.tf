@@ -5,9 +5,9 @@ module "vpc" {
   project_name = var.project_name
   environment  = var.environment
 
-  vpc_cidr            = var.vpc_cidr
-  availability_zones  = var.availability_zones
-  public_subnet_cidrs = var.public_subnet_cidrs
+  vpc_cidr             = var.vpc_cidr
+  availability_zones   = var.availability_zones
+  public_subnet_cidrs  = var.public_subnet_cidrs
   private_subnet_cidrs = var.private_subnet_cidrs
 }
 
@@ -69,6 +69,7 @@ module "alb" {
 }
 
 
+
 module "ecs" {
 
   source = "../../modules/ecs"
@@ -77,6 +78,10 @@ module "ecs" {
   environment  = var.environment
 
   cluster_name = "${var.project_name}-${var.environment}"
+
+  aws_region = var.aws_region
+
+  ui_theme = var.ui_theme
 
   private_subnet_ids = module.vpc.private_subnet_ids
 
