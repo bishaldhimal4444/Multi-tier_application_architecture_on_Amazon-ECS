@@ -1,5 +1,3 @@
-# Multi-tier_application_architecture_on_Amazon-ECS
-
 ### 1. Deploying a Minimum Viable Product (MVP) on Amazon ECS
 
 The development team has created a simple but elegant web application showcasing the store's product catalog. Mission is to deploy this single-container application using Amazon ECS.
